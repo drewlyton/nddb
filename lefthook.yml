@@ -1,0 +1,15 @@
+pre-commit:
+  runner: bash
+  commands:
+    typescript-lint:
+      glob: "**/*.ts"
+      run: pnpm exec oxlint --fix {staged_files}
+      stage_fixed: true
+    format:
+      glob:
+        - "*.md"
+        - "**/*.md"
+        - "**/*.ts"
+        - "**/*.json"
+      run: pnpm exec oxfmt --write {staged_files}
+      stage_fixed: true

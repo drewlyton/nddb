@@ -1,0 +1,52 @@
+{
+  "name": "nddb",
+  "version": "0.0.1",
+  "description": "A tiny single-file database: one NDJSON action log, entities materialized from put and patch actions.",
+  "keywords": [
+    "action-log",
+    "database",
+    "embedded",
+    "event-sourcing",
+    "jsonl",
+    "ndjson"
+  ],
+  "license": "MIT",
+  "author": "Drew Lyton (drewlyton)",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "lefthook": "^2.1.5",
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.88.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

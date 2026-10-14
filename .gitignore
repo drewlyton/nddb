@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.DS_Store
+*.tsbuildinfo
+.env
+
+# Local databases written while poking at the library by hand.
+*.ndjson
