@@ -1,0 +1,13 @@
+{
+  "name": "nddb-bench-compare",
+  "private": true,
+  "description": "Reference harness comparing nddb with a whole-file JSON store and an embedded SQL engine. NOT a dependency of nddb.",
+  "type": "module",
+  "scripts": {
+    "start": "node compare.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "lowdb": "^7.0.1"
+  }
+}

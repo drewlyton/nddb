@@ -29,6 +29,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "bench": "pnpm build && node bench/size-envelope.mjs && node --expose-gc bench/read-write.mjs",
     "test": "vitest --run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

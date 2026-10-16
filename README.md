@@ -101,14 +101,46 @@ caller must not treat it as success.
 under `strict`. `close()` flushes, releases the handle, and is optional and
 idempotent — an unclosed handle loses only the flush guarantee.
 
-The cost of the promise, on ext4: buffered ≈ 2 µs per append, strict ≈ 670 µs.
-Seeding 5,000 actions costs ~10 ms buffered versus ~3.4 s strict. Bulk loads
-should use `buffered` and `flush()` once at the end.
+The cost of the promise, measured on ext4: the raw append syscall is ~2 µs
+buffered and ~670 µs under `strict`; the public `put` (validate, serialise,
+fold) is ~8 µs buffered. Bulk loads should use `buffered` and `flush()` once at
+the end; see [Size envelope](#size-envelope) for the numbers.
 
 ## Size envelope
 
 nddb is designed for logs in the **single-digit-megabyte range — on the order
 of tens of thousands of actions**. This is documented, not enforced.
+
+Measured with `pnpm bench` on one machine (Linux/x64, Node v24.21.0, ext4),
+over an entity with a few scalar fields and a short array. Eager `open` is the
+median of 5 runs (3 at 100k):
+
+| Actions | File size | Eager `open` (read + fold) |
+| ------: | --------: | -------------------------: |
+|  10,000 |   0.95 MB |                     ~35 ms |
+|  50,000 |   4.88 MB |                    ~130 ms |
+| 100,000 |   9.79 MB |                    ~230 ms |
+
+Writes through the public `put` (validate, serialise, one `write(2)`, fold):
+
+| Policy   | Actions |  Total | Per `put` |
+| -------- | ------: | -----: | --------: |
+| buffered |  50,000 | ~0.4 s |     ~8 µs |
+| strict   |  10,000 | ~6.7 s |   ~670 µs |
+
+`flush()` after the 50,000 buffered writes costs ~4 ms (one `fsync`).
+
+Reproduce with `pnpm bench` (builds `dist/` first; see [`bench/`](bench/README.md)
+for read/write speed, latency percentiles, and memory). The numbers move run to
+run and are only meaningful on a real filesystem — on tmpfs `fsync` is a no-op,
+so the `strict` rows do not apply there.
+
+So the promise holds: 50,000 actions is a 4.88 MB log that `open` folds in
+~130 ms and that `buffered` writes at ~8 µs per action. The top of the range
+is real, not comfortable — 100,000 actions is already 9.79 MB and a ~230 ms
+blocking `open` — so treat "tens of thousands" as the ceiling it is. The
+ceiling is about blocking latency and resident memory, not correctness: the same
+code opens a million actions in a few seconds.
 
 - `open` is **O(file size)** and **blocking**: it reads the whole file and
   replays every action before returning.
