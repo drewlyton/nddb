@@ -83,14 +83,15 @@ One workload — 10,000 entities of `{id, n, name, tags}` — against a whole-fi
 JSON store (`lowdb` 7, sync) and an embedded SQL engine (`better-sqlite3` 13).
 Run it with `cd bench/compare && npm install && node compare.mjs`.
 
-| workflow               | nddb                                | lowdb (JSON file)                  | better-sqlite3               |
-| ---------------------- | ----------------------------------- | ---------------------------------- | ---------------------------- |
-| bulk seed 10k, durable | 81 ms buffered+flush / 5.9 s strict | 11 ms (no fsync)                   | **30 ms** in one transaction |
-| load all into memory   | 13 ms warm / 25 ms first open       | 12 ms                              | 5 ms raw / 16 ms + Map       |
-| point read by id       | **2.0 µs** (in-memory)              | 89 µs (O(n) scan)                  | 4.4 µs (indexed)             |
-| one write, durable     | 587 µs (strict)                     | 7.1 ms — rewrites **every** record | 723 µs (autocommit)          |
-| one write, best-effort | **5.1 µs**                          | same 7.1 ms                        | ~3 µs inside a transaction   |
-| file size              | 0.89 MB                             | 1.42 MB                            | 1.03 MB                      |
+| workflow               | nddb                                | lowdb (JSON file)                  | better-sqlite3                 |
+| ---------------------- | ----------------------------------- | ---------------------------------- | ------------------------------ |
+| bulk seed 10k, durable | 81 ms buffered+flush / 5.9 s strict | 11 ms (no fsync)                   | **30 ms** in one transaction   |
+| load all into memory   | 13 ms warm / 25 ms first open       | 12 ms                              | 5 ms raw / 16 ms + Map         |
+| point read by id       | **2.0 µs** (in-memory)              | 89 µs (O(n) scan)                  | 4.4 µs (indexed)               |
+| one write, durable     | 587 µs (strict)                     | 7.1 ms — rewrites **every** record | 723 µs (autocommit)            |
+| one write, best-effort | **~6 µs**                           | same 7.1 ms                        | ~3 µs inside a transaction     |
+| scan all, no copy      | **0.5 ms** (`forEach`)              | 0.2 ms (raw array `for..of`)       | 15 ms (iterate + `JSON.parse`) |
+| file size              | 0.89 MB                             | 1.42 MB                            | 1.03 MB                        |
 
 What the table means:
 
