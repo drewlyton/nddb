@@ -55,4 +55,21 @@ but callers can only edit a record by spreading it first.
 
 ## Verdict
 
-_Pending — to be recorded here and as a resolution comment on #6._
+**Deep copy on read.** `get(id)` and `all()` return `structuredClone`d values, so
+the materialised view never hands out a stored object. Entities stay plain
+mutable values — no freezing, no proxies.
+
+The mirror rule applies on the way in: `put`/`patch` currently share nested
+objects with the caller's argument, so the view must be made to not alias
+caller-owned data in either direction (see the resolution on #6).
+
+Rejected:
+
+- **Deep-freeze** — because `put`/`patch` share nested objects with the caller's
+  argument, freezing the store would freeze the caller's own objects; avoiding
+  that needs a clone on write anyway, at which point deep copy is friendlier.
+- **Shallow copy** and **live object** — both leave nested values shared, which
+  is the silent view-corruption this ticket exists to close.
+
+Recorded as the resolution comment on
+[#6](https://github.com/drewlyton/nddb/issues/6).
