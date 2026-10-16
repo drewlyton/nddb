@@ -16,10 +16,18 @@ export type NdjsonDb = {
   patch(id: string, patch: Record<string, unknown>): void;
 };
 
+const foldInto = (entities: Map<string, Entity>, action: Action): void => {
+  if (action.op === "delete") {
+    entities.delete(action.id);
+    return;
+  }
+  entities.set(action.id, applyAction(entities.get(action.id), action));
+};
+
 const materialize = (actions: readonly Action[]): Map<string, Entity> => {
   const entities = new Map<string, Entity>();
   for (const action of actions) {
-    entities.set(action.id, applyAction(entities.get(action.id), action));
+    foldInto(entities, action);
   }
   return entities;
 };
@@ -30,7 +38,7 @@ export const open = (path: string): NdjsonDb => {
 
   const commit = (action: Action): void => {
     appendAction(path, action);
-    entities.set(action.id, applyAction(entities.get(action.id), action));
+    foldInto(entities, action);
   };
 
   return {
@@ -39,8 +47,8 @@ export const open = (path: string): NdjsonDb => {
     all: () => [...entities.values()],
     put: (entity) => {
       const { id, ...value } = entity;
-      commit({ type: "put", id, value });
+      commit({ op: "put", id, value });
     },
-    patch: (id, patch) => commit({ type: "patch", id, patch }),
+    patch: (id, patch) => commit({ op: "patch", id, patch }),
   };
 };

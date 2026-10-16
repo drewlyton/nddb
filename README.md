@@ -34,9 +34,9 @@ issues on the [`wayfinder:map`](https://github.com/drewlyton/nddb/issues/1). The
 build is planned there too, as `build`-labelled child tickets.
 
 What is in `src/` today is the original walking skeleton. It predates the design
-and contradicts it — `type` where the format says `op`, a shallow spread where
-the design says RFC 7386, no header, unguarded parsing, and reads that hand back
-live objects. It is being replaced ticket by ticket. **Do not depend on it.**
+and still contradicts it — a shallow spread where the design says RFC 7386, no
+header, unguarded parsing, and reads that hand back live objects. It is being
+replaced ticket by ticket. **Do not depend on it.**
 
 ## Design in one paragraph
 

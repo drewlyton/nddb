@@ -27,8 +27,8 @@ describe("nddb", () => {
     writeFileSync(
       path,
       [
-        JSON.stringify({ type: "put", id: "a", value: { title: "first" } }),
-        JSON.stringify({ type: "put", id: "b", value: { title: "second" } }),
+        JSON.stringify({ op: "put", id: "a", value: { title: "first" } }),
+        JSON.stringify({ op: "put", id: "b", value: { title: "second" } }),
       ].join("\n") + "\n",
     );
 
@@ -51,6 +51,19 @@ describe("nddb", () => {
     db.patch("a", { title: "from patch" });
 
     expect(db.get("a")).toEqual({ id: "a", title: "from patch" });
+  });
+
+  it("hard-deletes an entity when a delete line is replayed", () => {
+    writeFileSync(
+      path,
+      [
+        JSON.stringify({ op: "put", id: "a", value: { title: "first" } }),
+        JSON.stringify({ op: "delete", id: "a" }),
+      ].join("\n") + "\n",
+    );
+
+    expect(open(path).get("a")).toBeUndefined();
+    expect(open(path).all()).toEqual([]);
   });
 
   it("appends one action per line and replays them in order", () => {
