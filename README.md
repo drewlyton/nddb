@@ -130,14 +130,17 @@ Writes through the public `put` (validate, serialise, one `write(2)`, fold):
 
 `flush()` after the 50,000 buffered writes costs ~4 ms (one `fsync`).
 
-Reproduce with `pnpm bench` (builds `dist/` first). The numbers move run to run
-and are only meaningful on a real filesystem — on tmpfs `fsync` is a no-op, so
-the `strict` rows do not apply there.
+Reproduce with `pnpm bench` (builds `dist/` first; see [`bench/`](bench/README.md)
+for read/write speed, latency percentiles, and memory). The numbers move run to
+run and are only meaningful on a real filesystem — on tmpfs `fsync` is a no-op,
+so the `strict` rows do not apply there.
 
 So the promise holds: 50,000 actions is a 4.88 MB log that `open` folds in
 ~130 ms and that `buffered` writes at ~8 µs per action. The top of the range
 is real, not comfortable — 100,000 actions is already 9.79 MB and a ~230 ms
-blocking `open` — so treat "tens of thousands" as the ceiling it is.
+blocking `open` — so treat "tens of thousands" as the ceiling it is. The
+ceiling is about blocking latency and resident memory, not correctness: the same
+code opens a million actions in a few seconds.
 
 - `open` is **O(file size)** and **blocking**: it reads the whole file and
   replays every action before returning.
