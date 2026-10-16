@@ -1,3 +1,5 @@
+import { isJsonObject } from "./json.js";
+
 /** The three verbs of the log's closed grammar. */
 export type ActionOp = "put" | "patch" | "delete";
 
@@ -41,9 +43,6 @@ export type ActionErrorCode =
 export type ActionCheck =
   | { readonly ok: true; readonly action: Action }
   | { readonly ok: false; readonly code: ActionErrorCode; readonly path?: ActionPath };
-
-const isJsonObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const fail = (code: ActionErrorCode, path?: ActionPath): ActionCheck =>
   path === undefined ? { ok: false, code } : { ok: false, code, path };
