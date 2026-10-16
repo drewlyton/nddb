@@ -166,7 +166,24 @@ export const readActions = (path: string): Action[] => {
   );
 };
 
+/**
+ * Serialise one action as a record with the format's fixed envelope order.
+ *
+ * The envelope is rebuilt from the fields so a caller cannot reorder `op` and
+ * `id`; the payload object is stringified as given, verbatim (#7).
+ */
+export const serialiseAction = (action: Action): string => {
+  switch (action.op) {
+    case "put":
+      return `${JSON.stringify({ op: action.op, id: action.id, value: action.value })}\n`;
+    case "patch":
+      return `${JSON.stringify({ op: action.op, id: action.id, patch: action.patch })}\n`;
+    case "delete":
+      return `${JSON.stringify({ op: action.op, id: action.id })}\n`;
+  }
+};
+
 /** Append one action to the NDJSON file as a single line. */
 export const appendAction = (path: string, action: Action): void => {
-  appendFileSync(path, `${JSON.stringify(action)}\n`, "utf8");
+  appendFileSync(path, serialiseAction(action), "utf8");
 };
