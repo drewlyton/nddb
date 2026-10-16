@@ -138,7 +138,7 @@ export const open = <T extends Record<string, unknown> = Record<string, unknown>
     if (violation !== undefined) {
       throw notJsonError(violation.reason, violation.path);
     }
-    return structuredClone(payload) as Record<string, unknown>;
+    return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
   };
 
   const classifyOrThrow = (input: unknown): Action => {
