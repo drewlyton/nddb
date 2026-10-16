@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nddb — what does a fetched record hand back?</title>
+    <style>
+      :root {
+        --ink: #1b1d22;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --bg: #f7f7f8;
+        --panel: #ffffff;
+        --accent: #4f46e5;
+        --accent-soft: #eef2ff;
+        --danger: #b91c1c;
+        --danger-soft: #fef2f2;
+        --ok: #047857;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 0 0 6px;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font-size: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      p.lede {
+        color: var(--muted);
+        max-width: 70ch;
+        margin: 0 0 4px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 820px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .policies {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      @media (max-width: 820px) {
+        .policies {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .policy {
+        text-align: left;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 12px;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+      }
+      .policy.on {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .policy b {
+        display: block;
+        font-size: 14px;
+      }
+      .policy span {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      button.action {
+        font: inherit;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: inherit;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        margin: 0 6px 6px 0;
+      }
+      button.action:hover {
+        border-color: #c7c9cf;
+      }
+      button.action.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      code,
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+      }
+      .entity {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .entity .id {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      .field {
+        display: flex;
+        gap: 10px;
+      }
+      .field .k {
+        color: var(--muted);
+        min-width: 70px;
+      }
+      .field .v {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12.5px;
+        white-space: pre-wrap;
+      }
+      .log {
+        background: #12141a;
+        color: #d7dae0;
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 40px;
+      }
+      .log div {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12.5px;
+        white-space: pre-wrap;
+      }
+      .log .empty {
+        color: #5b6270;
+      }
+      .status {
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      .status.info {
+        background: var(--accent-soft);
+      }
+      .status.bad {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .status.good {
+        background: #ecfdf5;
+        color: var(--ok);
+      }
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11.5px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .badge.warn {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .badge.muted {
+        background: #f1f2f4;
+        color: var(--muted);
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .tab {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 999px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .tab.on {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+      ol.steps {
+        list-style: none;
+        padding: 0;
+        margin: 12px 0 0;
+      }
+      ol.steps li {
+        margin-bottom: 8px;
+      }
+      ol.steps li.done {
+        color: var(--muted);
+      }
+      ol.steps li button {
+        min-width: 220px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .bench td:last-child {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .sep {
+        height: 1px;
+        background: var(--line);
+        margin: 16px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>What does a fetched record hand back?</h1>
+      <p class="lede">
+        nddb keeps a materialised view in memory and returns records from it. This demo asks one
+        question: when you <em>fetch</em> a record and then edit it <em>without saving</em>, does
+        the database change? Switch the connection style and run the same edit to feel the
+        difference. The log at the bottom is the actual file and never changes unless you press
+        <em>save</em>.
+      </p>
+
+      <div class="card">
+        <h2>Connection style — what <code>get()</code> hands you</h2>
+        <div class="policies" id="policies"></div>
+        <div class="status info" id="policyNote"></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Stored view (in memory)</h2>
+          <div id="view"></div>
+        </div>
+        <div class="card">
+          <h2>Your fetched copy</h2>
+          <div id="copy"></div>
+          <div id="sharing"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Action log — the file on disk</h2>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="status info" id="status">Nothing fetched yet.</div>
+
+      <div class="card">
+        <h2>Free play</h2>
+        <div>
+          <button class="action" data-do="fetch">Fetch <code>todo_1</code></button>
+          <button class="action" data-do="rename">Rename the copy</button>
+          <button class="action" data-do="tag">Push a tag onto the copy</button>
+          <button class="action" data-do="drop">Delete <code>done</code> from the copy</button>
+          <button class="action primary" data-do="save">Save the copy (put)</button>
+          <button class="action" data-do="reset">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Guided walkthroughs</h2>
+        <div class="tabs" id="tabs"></div>
+        <div id="scenario"></div>
+      </div>
+
+      <div class="card">
+        <h2>Cost at the size envelope</h2>
+        <p class="hint">
+          #12 says nddb is designed for single-digit MB and tens of thousands of actions. Measure
+          what copying on every read costs at 10,000 records (~2 MB). “Every record” is
+          <code>all()</code>; “one record” is a single <code>get()</code>.
+        </p>
+        <button class="action" id="benchBtn">Measure 10,000 records</button>
+        <table class="bench" id="bench"></table>
+      </div>
+    </main>
+
+    <script>
+      "use strict";
+
+      /* ------------------------------------------------------------------ *
+       * Pure module: the materialised view and the read policy.            *
+       * No DOM in here — this is the part worth lifting into the real code. *
+       * ------------------------------------------------------------------ */
+
+      const SEED = {
+        todo_1: { title: "buy milk", done: false, tags: ["home"], author: { name: "Ada" } },
+        todo_2: { title: "write README", done: true, tags: ["docs"], author: { name: "Ada" } },
+      };
+
+      const POLICIES = {
+        reference: {
+          label: "Live object",
+          note: "get() hands back the database's own object. Editing it changes the view, and the log is unaware — the two have diverged.",
+          read: (entity) => entity,
+          freeze: false,
+        },
+        shallow: {
+          label: "Top-level copy",
+          note: "get() hands back a fresh object, but its nested values are still the database's. Renaming is safe; editing a nested field is not.",
+          read: (entity) => (entity === undefined ? undefined : { ...entity }),
+          freeze: false,
+        },
+        deep: {
+          label: "Independent copy",
+          note: "get() hands back a full deep copy. Nothing you do to it can reach the view. This is what the ebbjs prior art does.",
+          read: (entity) => (entity === undefined ? undefined : structuredClone(entity)),
+          freeze: false,
+        },
+        frozen: {
+          label: "Locked record",
+          note: "The stored records are deep-frozen, so get() can hand back the real object and any edit throws. Cheap on read, but callers must never mutate what they fetch.",
+          read: (entity) => entity,
+          freeze: true,
+        },
+      };
+
+      const deepFreeze = (value) => {
+        if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+          Object.freeze(value);
+          for (const key of Object.keys(value)) deepFreeze(value[key]);
+        }
+        return value;
+      };
+
+      // RFC 7386, trimmed to the demo: null removes a member, arrays are values.
+      const merge = (target, patch) => {
+        if (patch === null || typeof patch !== "object" || Array.isArray(patch)) return patch;
+        const base =
+          target !== null && typeof target === "object" && !Array.isArray(target) ? target : {};
+        const out = { ...base };
+        for (const key of Object.keys(patch)) {
+          const value = patch[key];
+          if (value === null) delete out[key];
+          else out[key] = merge(out[key], value);
+        }
+        return out;
+      };
+
+      const fold = (view, action, freeze) => {
+        if (action.op === "delete") {
+          view.delete(action.id);
+          return;
+        }
+        const fields =
+          action.op === "put" ? action.value : merge(view.get(action.id), action.patch);
+        const entity = { ...fields, id: action.id };
+        view.set(action.id, freeze ? deepFreeze(entity) : entity);
+      };
+
+      const materialize = (actions, freeze) => {
+        const view = new Map();
+        for (const action of actions) fold(view, action, freeze);
+        return view;
+      };
+
+      const serialise = (action) => {
+        if (action.op === "put")
+          return JSON.stringify({ op: "put", id: action.id, value: action.value });
+        if (action.op === "patch")
+          return JSON.stringify({ op: "patch", id: action.id, patch: action.patch });
+        return JSON.stringify({ op: "delete", id: action.id });
+      };
+
+      const createStore = (policyName) => {
+        const policy = POLICIES[policyName];
+        let actions = [];
+        let view = new Map();
+
+        const rebuild = () => {
+          view = materialize(actions, policy.freeze);
+        };
+        const append = (action) => {
+          actions = [...actions, action];
+          rebuild();
+        };
+
+        return {
+          policy,
+          policyName,
+          raw: (id) => view.get(id),
+          rawAll: () => [...view.values()],
+          get: (id) => policy.read(view.get(id)),
+          all: () => [...view.values()].map((entity) => policy.read(entity)),
+          put: (entity) => {
+            const { id, ...value } = entity;
+            append({ op: "put", id, value });
+          },
+          patch: (id, patch) => append({ op: "patch", id, patch }),
+          delete: (id) => append({ op: "delete", id }),
+          actions: () => actions,
+          lines: () => actions.map(serialise),
+          reset: () => {
+            actions = [];
+            append({ op: "put", id: "todo_1", value: structuredClone(SEED.todo_1) });
+            append({ op: "put", id: "todo_2", value: structuredClone(SEED.todo_2) });
+          },
+        };
+      };
+
+      /* ------------------------------------------------------------------ *
+       * The page: a thin shell over the module.                            *
+       * ------------------------------------------------------------------ */
+
+      const state = {
+        policy: "reference",
+        store: null,
+        copy: null,
+        copyId: "todo_1",
+        status: { kind: "info", text: "Nothing fetched yet." },
+        scenario: 0,
+        done: 0,
+        bench: null,
+      };
+
+      const el = (id) => document.getElementById(id);
+
+      const renderEntity = (entity) => {
+        const rows = Object.entries(entity)
+          .map(
+            ([key, value]) =>
+              `<div class="field"><span class="k">${escapeHtml(key)}</span><span class="v">${escapeHtml(JSON.stringify(value))}</span></div>`,
+          )
+          .join("");
+        return `<div class="entity"><div class="id">id: ${escapeHtml(entity.id)}</div>${rows}</div>`;
+      };
+
+      const escapeHtml = (value) =>
+        String(value).replace(
+          /[&<>"]/g,
+          (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch],
+        );
+
+      const sharing = (copy, raw) => {
+        if (!copy || !raw) return '<span class="badge muted">nothing fetched</span>';
+        if (copy === raw) return '<span class="badge warn">this is the stored object itself</span>';
+        const shared = [];
+        if (copy.tags === raw.tags) shared.push("tags");
+        if (copy.author === raw.author) shared.push("author");
+        if (shared.length)
+          return `<span class="badge warn">shares nested values with the view: ${shared.join(", ")}</span>`;
+        return '<span class="badge">fully independent of the view</span>';
+      };
+
+      const render = () => {
+        el("tabs").innerHTML = SCENARIOS.map(
+          (scenario, index) =>
+            `<button class="tab ${index === state.scenario ? "on" : ""}" data-tab="${index}">${scenario.title}</button>`,
+        ).join("");
+        el("policies").innerHTML = Object.entries(POLICIES)
+          .map(
+            ([key, p]) =>
+              `<button class="policy ${key === state.policy ? "on" : ""}" data-policy="${key}"><b>${p.label}</b><span>${p.note.split(".")[0]}.</span></button>`,
+          )
+          .join("");
+        el("policyNote").textContent = state.store.policy.note;
+
+        el("view").innerHTML =
+          state.store.rawAll().map(renderEntity).join("") || '<p class="hint">empty</p>';
+        el("copy").innerHTML = state.copy
+          ? renderEntity(state.copy)
+          : '<p class="hint">Press “Fetch todo_1”.</p>';
+        el("sharing").innerHTML = sharing(state.copy, state.store.raw(state.copyId));
+
+        const lines = state.store.lines();
+        el("log").innerHTML = lines.length
+          ? lines.map((line) => `<div>${escapeHtml(line)}</div>`).join("")
+          : '<div class="empty">(empty file)</div>';
+
+        const s = el("status");
+        s.className = `status ${state.status.kind}`;
+        s.textContent = state.status.text;
+
+        el("scenario").innerHTML = renderScenario();
+      };
+
+      const note = (kind, text) => {
+        state.status = { kind, text };
+      };
+
+      const fetchCopy = (id) => {
+        state.copyId = id;
+        state.copy = state.store.get(id);
+        note(
+          "info",
+          `Fetched ${id}. ` +
+            (state.copy === state.store.raw(id)
+              ? "You are holding the database's own object."
+              : "You are holding a copy."),
+        );
+      };
+
+      const edit = (fn, description) => {
+        if (!state.copy) {
+          note("info", "Fetch a record first.");
+          return;
+        }
+        try {
+          fn(state.copy);
+          const raw = state.store.raw(state.copyId);
+          const diverged = JSON.stringify(state.copy) !== JSON.stringify(raw);
+          if (state.store.policyName === "frozen") {
+            note("good", `${description} — allowed, and the view still matches.`);
+          } else if (diverged) {
+            note(
+              "bad",
+              `${description} — and the stored view changed too, even though nothing was saved. The log still shows the old value.`,
+            );
+          } else {
+            note("good", `${description} — your copy changed, the stored view did not.`);
+          }
+        } catch (error) {
+          note("bad", `${description} threw: ${error.message}`);
+        }
+      };
+
+      const run = (action) => {
+        switch (action) {
+          case "fetch":
+            fetchCopy(state.copyId);
+            break;
+          case "rename":
+            edit((c) => {
+              c.title = c.title + " ✎";
+            }, "Renamed the copy");
+            break;
+          case "tag":
+            edit((c) => {
+              c.tags.push("edited");
+            }, "Pushed a tag onto the copy");
+            break;
+          case "drop":
+            edit((c) => {
+              delete c.done;
+            }, "Deleted done from the copy");
+            break;
+          case "save":
+            if (!state.copy) {
+              note("info", "Fetch a record first.");
+              break;
+            }
+            state.store.put(state.copy);
+            note("good", "Saved the copy as a new put action. The log and the view agree again.");
+            state.copy = state.store.get(state.copyId);
+            break;
+          case "reset":
+            state.store.reset();
+            state.copy = null;
+            state.copyId = "todo_1";
+            note("info", "Reset to the two seed records.");
+            break;
+        }
+        render();
+      };
+
+      const SCENARIOS = [
+        {
+          title: "Rename without saving",
+          setup:
+            "Fetch a record, rename it, then fetch it again. If the fetch returns the database's own object, your rename is already “saved” — but the log never heard about it.",
+          steps: [
+            { label: "Fetch todo_1", action: "fetch" },
+            { label: "Rename the copy", action: "rename" },
+            { label: "Fetch todo_1 again", action: "fetch" },
+          ],
+        },
+        {
+          title: "Edit a nested field",
+          setup:
+            "Renaming only changes a top-level field. Pushing a tag changes a value inside an array. A top-level copy protects the first and fails the second.",
+          steps: [
+            { label: "Fetch todo_1", action: "fetch" },
+            { label: "Push a tag onto the copy", action: "tag" },
+            { label: "Fetch todo_1 again", action: "fetch" },
+          ],
+        },
+        {
+          title: "What's inside a record?",
+          setup:
+            "Beyond the fields you wrote, an entity carries exactly one thing: its id. There is no updatedAt, no version, no deleted marker — #5 settled that nddb has no clock.",
+          steps: [{ label: "Fetch todo_1", action: "fetch" }],
+        },
+        {
+          title: "Edit then save",
+          setup:
+            "The intended path: fetch, edit your copy, then put it back. This works under every connection style — copying only protects the in-between.",
+          steps: [
+            { label: "Fetch todo_1", action: "fetch" },
+            { label: "Rename the copy", action: "rename" },
+            { label: "Save the copy (put)", action: "save" },
+            { label: "Fetch todo_1 again", action: "fetch" },
+          ],
+        },
+      ];
+
+      const renderScenario = () => {
+        const scenario = SCENARIOS[state.scenario];
+        const steps = scenario.steps
+          .map((step, index) => {
+            const cls = index < state.done ? "done" : "";
+            const mark = index < state.done ? "✓ " : "";
+            return `<li class="${cls}"><button class="action" data-step="${index}">${mark}${step.label}</button></li>`;
+          })
+          .join("");
+        return `<p><b>${scenario.title}.</b> ${scenario.setup}</p><ol class="steps">${steps}</ol><p class="hint">Starting a walkthrough resets to the seed records.</p>`;
+      };
+
+      const startScenario = (index) => {
+        state.scenario = index;
+        state.done = 0;
+        state.store.reset();
+        state.copy = null;
+        state.copyId = "todo_1";
+        note("info", "Scenario reset. Press the first step.");
+        render();
+      };
+
+      const runStep = (index) => {
+        const step = SCENARIOS[state.scenario].steps[index];
+        state.done = index + 1;
+        run(step.action);
+      };
+
+      const buildStore = (policy) => {
+        state.policy = policy;
+        state.store = createStore(policy);
+        state.store.reset();
+        state.copy = null;
+        state.copyId = "todo_1";
+        state.done = 0;
+        note("info", "Switched connection style and reset to the seed records.");
+        render();
+      };
+
+      /* ---- benchmark ---- */
+
+      const benchmark = () => {
+        const N = 10000;
+        const actions = [];
+        for (let i = 0; i < N; i += 1) {
+          actions.push({
+            op: "put",
+            id: "todo_" + i,
+            value: {
+              title: "todo number " + i,
+              done: i % 2 === 0,
+              tags: ["a", "b", "c"],
+              author: { name: "Ada" },
+            },
+          });
+        }
+        const t0 = performance.now();
+        const view = materialize(actions, false);
+        const built = performance.now() - t0;
+
+        let sum = 0;
+        let t = performance.now();
+        for (const entity of view.values()) sum += entity.title.length;
+        const reference = performance.now() - t;
+
+        t = performance.now();
+        const shallow = [...view.values()].map((entity) => ({ ...entity }));
+        const shallowMs = performance.now() - t;
+
+        t = performance.now();
+        const deep = [...view.values()].map((entity) => structuredClone(entity));
+        const deepMs = performance.now() - t;
+
+        t = performance.now();
+        for (let i = 0; i < N; i += 1) structuredClone(view.get("todo_" + i));
+        const getMs = performance.now() - t;
+
+        return [
+          ["Build the view (once, at open)", built],
+          [`all() — live objects (baseline, ${sum} chars read)`, reference],
+          [`all() — top-level copy (${shallow.length} records)`, shallowMs],
+          [`all() — deep copy (${deep.length} records)`, deepMs],
+          [`10,000 × get() — deep copy`, getMs],
+        ];
+      };
+
+      /* ---- wiring ---- */
+
+      el("policies").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-policy]");
+        if (button) buildStore(button.dataset.policy);
+      });
+      el("tabs").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-tab]");
+        if (button) startScenario(Number(button.dataset.tab));
+      });
+      el("scenario").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-step]");
+        if (button) runStep(Number(button.dataset.step));
+      });
+      document.querySelectorAll("[data-do]").forEach((button) => {
+        button.addEventListener("click", () => run(button.dataset.do));
+      });
+      el("benchBtn").addEventListener("click", () => {
+        const rows = benchmark();
+        el("bench").innerHTML =
+          "<tr><th>Work</th><th>ms</th></tr>" +
+          rows
+            .map(([label, ms]) => `<tr><td>${escapeHtml(label)}</td><td>${ms.toFixed(2)}</td></tr>`)
+            .join("");
+      });
+
+      buildStore("reference");
+    </script>
+  </body>
+</html>
