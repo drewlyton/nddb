@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,6 +21,12 @@ describe("nddb", () => {
 
   it("reads a missing log as an empty database", () => {
     expect(open(path).all()).toEqual([]);
+  });
+
+  it("does not create the file on open", () => {
+    open(path);
+
+    expect(existsSync(path)).toBe(false);
   });
 
   it("materializes puts from the log on open", () => {
@@ -64,6 +70,23 @@ describe("nddb", () => {
 
     expect(open(path).get("a")).toBeUndefined();
     expect(open(path).all()).toEqual([]);
+  });
+
+  it("throws when the log has a damaged complete line", () => {
+    writeFileSync(
+      path,
+      [JSON.stringify({ op: "put", id: "a", value: { title: "first" } }), "not json"].join("\n") +
+        "\n",
+    );
+
+    expect(() => open(path)).toThrow(/line 2/);
+  });
+
+  it("throws when the log header names a newer version", () => {
+    writeFileSync(path, '{"nddb":2}\n');
+
+    expect(() => open(path)).toThrow(/version 2/);
+    expect(() => open(path)).toThrow(/up to 1/);
   });
 
   it("appends one action per line and replays them in order", () => {
