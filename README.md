@@ -2,7 +2,7 @@
 
 A tiny single-file database. Everything lives in one NDJSON (newline-delimited
 JSON) file that is an **action log**: entities are materialized by replaying a
-sequence of `put` and `patch` actions in order.
+sequence of `put`, `patch`, and `delete` actions in order.
 
 Built for quick prototypes and small apps that need durable storage with
 minimal storage, memory, and performance overhead — not for scale.
@@ -21,16 +21,22 @@ db.get("todo_1"); // { id: "todo_1", title: "write the README", done: true }
 The file it writes is just JSON lines, one action per line:
 
 ```ndjson
-{"type":"put","id":"todo_1","value":{"title":"write the README","done":false}}
-{"type":"patch","id":"todo_1","patch":{"done":true}}
+{"op":"put","id":"todo_1","value":{"title":"write the README","done":false}}
+{"op":"patch","id":"todo_1","patch":{"done":true}}
 ```
 
 ## Status
 
-**Walking skeleton.** The toolchain, build, tests, and a minimal `put`/`patch`
-replay are in place. The public API, durability guarantees, and patch semantics
-are still being decided on the repo's wayfinding map — see the `wayfinder:map`
-issue. Expect the API to move.
+**Pre-release, and the code in `src/` is stale scaffolding.** The design is
+settled: the action grammar, patch semantics, durability contract, identity
+rules, on-disk format, and API shape are all decided, and the decisions live as
+issues on the [`wayfinder:map`](https://github.com/drewlyton/nddb/issues/1). The
+build is planned there too, as `build`-labelled child tickets.
+
+What is in `src/` today is the original walking skeleton. It predates the design
+and contradicts it — `type` where the format says `op`, a shallow spread where
+the design says RFC 7386, no header, unguarded parsing, and reads that hand back
+live objects. It is being replaced ticket by ticket. **Do not depend on it.**
 
 ## Design in one paragraph
 
