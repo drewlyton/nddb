@@ -151,6 +151,17 @@ try {
     }
     console.log(`  get() ${(median(gets) * 1000).toFixed(1)} µs (median of 1,000)`);
     console.log(`  all() ${median(alls).toFixed(0)} ms (median of 5, deep copy of every entity)`);
+    const scans = [];
+    for (let run = 0; run < 5; run += 1) {
+      let visited = 0;
+      const started = now();
+      db.forEach(() => {
+        visited += 1;
+      });
+      scans.push(now() - started);
+      if (visited !== 100_000) throw new Error(`forEach visited ${visited}, expected 100000`);
+    }
+    console.log(`  forEach() ${median(scans).toFixed(0)} ms (median of 5, no copy)`);
     db.close();
   }
 
