@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nddb — what reads should the handle expose?</title>
+    <style>
+      :root {
+        --ink: #1b1d22;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --bg: #f7f7f8;
+        --panel: #ffffff;
+        --accent: #4f46e5;
+        --accent-soft: #eef2ff;
+        --danger: #b91c1c;
+        --danger-soft: #fef2f2;
+        --ok: #047857;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 0 0 6px;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 18px 0 6px;
+      }
+      p.lede {
+        color: var(--muted);
+        max-width: 72ch;
+        margin: 0 0 4px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 820px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      button.action {
+        font: inherit;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: inherit;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        margin: 0 6px 6px 0;
+      }
+      button.action:hover {
+        border-color: #c7c9cf;
+      }
+      button.action.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button.action.warn {
+        border-color: #f1c0c0;
+        color: var(--danger);
+      }
+      button.action:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+      }
+      pre {
+        background: #12141a;
+        color: #d7dae0;
+        border-radius: 8px;
+        padding: 12px;
+        overflow: auto;
+        margin: 0 0 8px;
+      }
+      pre .c {
+        color: #6b7280;
+      }
+      pre .k {
+        color: #c792ea;
+      }
+      .entity {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .entity .id {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      .field {
+        display: flex;
+        gap: 10px;
+      }
+      .field .k {
+        color: var(--muted);
+        min-width: 60px;
+      }
+      .field .v {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12.5px;
+        white-space: pre-wrap;
+      }
+      .status {
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      .status.info {
+        background: var(--accent-soft);
+      }
+      .status.bad {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .status.good {
+        background: #ecfdf5;
+        color: var(--ok);
+      }
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11.5px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .badge.warn {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .badge.muted {
+        background: #f1f2f4;
+        color: var(--muted);
+      }
+      .toggle {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .toggle button {
+        border: 0;
+        background: var(--panel);
+        font: inherit;
+        padding: 6px 14px;
+        cursor: pointer;
+      }
+      .toggle button.on {
+        background: var(--ink);
+        color: #fff;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .callsite {
+        border-top: 1px solid var(--line);
+        padding: 14px 0;
+      }
+      .callsite:first-child {
+        border-top: 0;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>What reads should the handle expose?</h1>
+      <p class="lede">
+        A materialised view is a <code>Map</code>, so almost every proposed read is one line over
+        it. The question is which of those one-liners are worth naming. This demo runs each
+        candidate read, counts how many entity copies it performs under #6's copy-on-read rule, and
+        shows what three honest call sites actually need: render a list, look one up by id, filter
+        by hand.
+      </p>
+
+      <div class="card">
+        <h2>The dataset</h2>
+        <div id="dataset"></div>
+      </div>
+
+      <div class="card">
+        <h2>Run a read</h2>
+        <div class="hint" style="margin-bottom: 10px">
+          Every read below is implemented over the same seed view. Watch “entity copies”.
+        </div>
+        <div id="readButtons"></div>
+        <div class="status info" id="readResult">Pick a read.</div>
+      </div>
+
+      <div class="card">
+        <h2>The predicate hazard</h2>
+        <p class="hint">
+          If <code>filter</code>/<code>find</code> call your predicate with the
+          <em>stored</em> entity, a predicate that mutates corrupts the view — the same trap #6
+          closed for <code>get</code>. The only safe version copies before calling you, which is
+          exactly <code>all().filter(...)</code>.
+        </p>
+        <button class="action warn" id="hazard">Run a filter whose predicate mutates</button>
+        <div class="status info" id="hazardResult">Not run.</div>
+      </div>
+
+      <div class="card">
+        <h2>Honest call sites</h2>
+        <p class="hint">
+          Left: what the call site looks like with only <code>get</code> and <code>all</code>.
+          Right: with the candidate method.
+        </p>
+        <div id="callsites"></div>
+      </div>
+
+      <div class="card">
+        <h2>Cost, stated plainly</h2>
+        <table id="cost">
+          <tr>
+            <th>Read</th>
+            <th>Copy</th>
+            <th>ms at 10k</th>
+            <th>Without it you write</th>
+          </tr>
+        </table>
+        <p class="hint" style="margin-top: 10px">
+          Measured on the #6 prototype: 10,000 records ≈ 1 MiB, one deep copy ≈ 3 µs,
+          <code>all()</code>
+          ≈ 20–35 ms. No read here needs an index; every predicate read is O(n).
+        </p>
+      </div>
+    </main>
+
+    <script>
+      "use strict";
+
+      /* ------------------------------------------------------------------ *
+       * Pure module: a candidate read surface over a materialised view.     *
+       * Copy-on-read (#6) is applied to everything it returns.             *
+       * ------------------------------------------------------------------ */
+
+      const SEED = [
+        {
+          id: "todo_1",
+          title: "buy milk",
+          done: false,
+          tags: ["home", "urgent"],
+          author: { name: "Ada" },
+        },
+        {
+          id: "todo_2",
+          title: "write README",
+          done: true,
+          tags: ["docs"],
+          author: { name: "Ada" },
+        },
+        {
+          id: "todo_3",
+          title: "ship v0.1",
+          done: false,
+          tags: ["work", "urgent"],
+          author: { name: "Grace" },
+        },
+        {
+          id: "todo_4",
+          title: "read RFC 7386",
+          done: true,
+          tags: ["docs"],
+          author: { name: "Grace" },
+        },
+        {
+          id: "todo_5",
+          title: "water plants",
+          done: false,
+          tags: ["home"],
+          author: { name: "Ada" },
+        },
+      ];
+
+      const createHandle = (seed) => {
+        const store = new Map();
+        for (const entity of seed) store.set(entity.id, structuredClone(entity));
+        let copies = 0;
+        const copyOut = (entity) => {
+          copies += 1;
+          return structuredClone(entity);
+        };
+
+        return {
+          get: (id) => {
+            const entity = store.get(id);
+            return entity === undefined ? undefined : copyOut(entity);
+          },
+          all: () => [...store.values()].map(copyOut),
+          count: () => store.size,
+          has: (id) => store.has(id),
+          keys: () => [...store.keys()],
+          // Deliberately the naive shape: the predicate sees the stored entity.
+          filter: (predicate) => {
+            const out = [];
+            for (const entity of store.values()) if (predicate(entity)) out.push(copyOut(entity));
+            return out;
+          },
+          find: (predicate) => {
+            for (const entity of store.values()) if (predicate(entity)) return copyOut(entity);
+            return undefined;
+          },
+          *[Symbol.iterator]() {
+            for (const entity of store.values()) yield copyOut(entity);
+          },
+          raw: () => [...store.values()],
+          copies: () => copies,
+          resetMeter: () => {
+            copies = 0;
+          },
+          reset: () => {
+            store.clear();
+            for (const entity of seed) store.set(entity.id, structuredClone(entity));
+            copies = 0;
+          },
+        };
+      };
+
+      /* ------------------------------------------------------------------ *
+       * The page — a thin shell.                                           *
+       * ------------------------------------------------------------------ */
+
+      const state = {
+        db: createHandle(SEED),
+        lastCopies: 0,
+        status: { kind: "info", text: "Pick a read." },
+        hazard: { kind: "info", text: "Not run." },
+      };
+
+      const el = (id) => document.getElementById(id);
+      const escapeHtml = (value) =>
+        String(value).replace(
+          /[&<>"]/g,
+          (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch],
+        );
+
+      const renderEntity = (entity) => {
+        const rows = Object.entries(entity)
+          .map(
+            ([key, value]) =>
+              `<div class="field"><span class="k">${escapeHtml(key)}</span><span class="v">${escapeHtml(JSON.stringify(value))}</span></div>`,
+          )
+          .join("");
+        return `<div class="entity"><div class="id">id: ${escapeHtml(entity.id)}</div>${rows}</div>`;
+      };
+
+      const renderDataset = () => {
+        el("dataset").innerHTML = state.db.raw().map(renderEntity).join("");
+      };
+
+      const note = (result) => {
+        state.lastCopies = state.db.copies();
+        state.db.resetMeter();
+        el("readResult").className = `status ${result.kind}`;
+        el("readResult").textContent = result.text;
+      };
+
+      const READS = [
+        {
+          name: "get(id)",
+          cost: "O(1) + 1 copy",
+          run: () => {
+            const one = state.db.get("todo_3");
+            return { kind: "good", text: one ? `get("todo_3") → ${one.title}` : "undefined" };
+          },
+        },
+        {
+          name: "all()",
+          cost: "O(n) + n copies",
+          run: () => {
+            const rows = state.db.all();
+            return { kind: "good", text: `all() → ${rows.length} entities` };
+          },
+        },
+        {
+          name: "count()",
+          cost: "O(1), no copy",
+          run: () => ({ kind: "good", text: `count() → ${state.db.count()}` }),
+        },
+        {
+          name: "has(id)",
+          cost: "O(1), no copy",
+          run: () => ({
+            kind: "good",
+            text: `has("todo_3") → ${state.db.has("todo_3")}; has("nope") → ${state.db.has("nope")}`,
+          }),
+        },
+        {
+          name: "keys()",
+          cost: "O(n), no copy",
+          run: () => ({ kind: "good", text: `keys() → ${state.db.keys().join(", ")}` }),
+        },
+        {
+          name: "filter(p)",
+          cost: "O(n) + matches, predicate sees live",
+          run: () => {
+            const rows = state.db.filter((t) => t.tags.includes("urgent"));
+            return { kind: "good", text: `filter(urgent) → ${rows.map((t) => t.id).join(", ")}` };
+          },
+        },
+        {
+          name: "find(p)",
+          cost: "O(n), predicate sees live",
+          run: () => {
+            const one = state.db.find((t) => t.author.name === "Grace");
+            return { kind: "good", text: one ? `find(Grace) → ${one.id}` : "undefined" };
+          },
+        },
+        {
+          name: "iterate",
+          cost: "O(n) + n copies",
+          run: () => {
+            let n = 0;
+            for (const _ of state.db) n += 1;
+            return { kind: "good", text: `for…of → ${n} entities` };
+          },
+        },
+      ];
+
+      const renderReads = () => {
+        el("readButtons").innerHTML =
+          READS.map(
+            (read, index) =>
+              `<button class="action" data-read="${index}">${escapeHtml(read.name)}</button>`,
+          ).join("") + '<button class="action" data-read="reset">Reset view</button>';
+      };
+
+      const CALLSITES = [
+        {
+          title: "Render the list",
+          body: "for (const todo of db.all()) render(todo);",
+          withIt: "for (const todo of db) render(todo);   // all() is already an array",
+          verdict: "ceremony",
+        },
+        {
+          title: "Look one up by id",
+          body: 'const todo = db.get("todo_1");',
+          withIt: "—",
+          verdict: "the same",
+        },
+        {
+          title: "Filter by tag",
+          body: 'const urgent = db.all().filter((t) => t.tags.includes("urgent"));',
+          withIt:
+            'const urgent = db.filter((t) => t.tags.includes("urgent"));   // predicate sees the live entity',
+          verdict: "hazard",
+        },
+        {
+          title: "Is it there?",
+          body: 'const exists = db.get("todo_1") !== undefined;',
+          withIt: 'const exists = db.has("todo_1");',
+          verdict: "saves one copy",
+        },
+        {
+          title: "How many?",
+          body: "const n = db.all().length;",
+          withIt: "const n = db.count();",
+          verdict: "saves n copies",
+        },
+        {
+          title: "List the ids",
+          body: "const ids = db.all().map((t) => t.id);",
+          withIt: "const ids = db.keys();",
+          verdict: "saves n copies",
+        },
+      ];
+
+      const verdictBadge = (verdict) => {
+        if (verdict === "ceremony") return '<span class="badge warn">ceremony</span>';
+        if (verdict === "hazard") return '<span class="badge warn">safety hazard</span>';
+        if (verdict === "the same") return '<span class="badge muted">identical</span>';
+        return `<span class="badge">${escapeHtml(verdict)}</span>`;
+      };
+
+      const renderCallsites = () => {
+        el("callsites").innerHTML = CALLSITES.map(
+          (site) => `
+            <div class="callsite">
+              <h3>${escapeHtml(site.title)} ${verdictBadge(site.verdict)}</h3>
+              <pre><span class="c">// with get + all</span>
+${escapeHtml(site.body)}</pre>
+              ${site.withIt === "—" ? "" : `<pre><span class="c">// with the candidate</span>\n${escapeHtml(site.withIt)}</pre>`}
+            </div>`,
+        ).join("");
+      };
+
+      const renderCost = () => {
+        const rows = [
+          ["get(id)", "1 entity", "~3 µs", "—"],
+          ["all()", "every entity", "~20–35", "—"],
+          ["count()", "none", "~0", "all().length (copies everything)"],
+          ["has(id)", "none", "~0", "get(id) !== undefined (one copy)"],
+          ["keys()", "none", "~1", "all().map(t => t.id) (copies everything)"],
+          ["filter(p)", "each match", "~20–35", "all().filter(p) — same, but safe"],
+          ["find(p)", "one", "~10 avg", "all().find(p) — same, but safe"],
+          ["for…of db", "every entity", "~20–35", "for…of db.all() — same"],
+        ];
+        el("cost").innerHTML =
+          "<tr><th>Read</th><th>Copy</th><th>ms at 10k</th><th>Without it you write</th></tr>" +
+          rows
+            .map(
+              (row) =>
+                `<tr><td><code>${escapeHtml(row[0])}</code></td><td>${escapeHtml(row[1])}</td><td>${escapeHtml(row[2])}</td><td>${escapeHtml(row[3])}</td></tr>`,
+            )
+            .join("");
+      };
+
+      const render = () => {
+        renderDataset();
+        renderReads();
+        renderCallsites();
+        renderCost();
+        el("hazardResult").className = `status ${state.hazard.kind}`;
+        el("hazardResult").textContent = state.hazard.text;
+      };
+
+      el("readButtons").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-read]");
+        if (!button) return;
+        if (button.dataset.read === "reset") {
+          state.db.reset();
+          note({ kind: "info", text: "View reset to the seed." });
+          render();
+          return;
+        }
+        const read = READS[Number(button.dataset.read)];
+        const result = read.run();
+        const copies = state.lastCopies;
+        note({ kind: result.kind, text: `${result.text}  ·  entity copies: ${copies}` });
+      });
+
+      el("hazard").addEventListener("click", () => {
+        state.db.reset();
+        state.db.filter((todo) => {
+          todo.title = "MUTATED BY THE PREDICATE";
+          return false;
+        });
+        const corrupted = state.db.raw().some((todo) => todo.title === "MUTATED BY THE PREDICATE");
+        state.hazard = corrupted
+          ? {
+              kind: "bad",
+              text: "The predicate received the stored entity and rewrote it. The view is corrupt and the log never heard.",
+            }
+          : { kind: "good", text: "The predicate received a copy. The view is intact." };
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>
