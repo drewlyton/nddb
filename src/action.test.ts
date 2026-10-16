@@ -7,6 +7,7 @@ import {
   type ActionPath,
   type PutAction,
 } from "./action.js";
+import { findNonJson, type NonJsonViolation } from "./json.js";
 
 type ValidCase = {
   readonly name: string;
@@ -213,5 +214,142 @@ describe("classifyAction", () => {
     const author = result.action.value.author as Record<string, unknown>;
     expect(Object.hasOwn(author, "__proto__")).toBe(true);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+type NonJsonCase = {
+  readonly name: string;
+  readonly input: unknown;
+  readonly violation?: NonJsonViolation;
+};
+
+const selfObject: Record<string, unknown> = {};
+selfObject.me = selfObject;
+
+const selfArray: unknown[] = [];
+selfArray.push(selfArray);
+
+const sharedReference = { n: 1 };
+
+const nonJsonCases: readonly NonJsonCase[] = [
+  { name: "allows null", input: { a: null } },
+  { name: "allows null in an array", input: [null] },
+  { name: "allows -0 and finite numbers", input: { a: -0, b: 0, c: 1.5, d: -2 } },
+  { name: "allows strings, booleans, and empty objects", input: { a: "", b: false, c: {} } },
+  { name: "allows an empty array", input: [] },
+  {
+    name: "allows a shared reference used twice",
+    input: { left: sharedReference, right: sharedReference },
+  },
+
+  {
+    name: "reports a top-level undefined",
+    input: undefined,
+    violation: { path: [], reason: "undefined" },
+  },
+  {
+    name: "reports a top-level function",
+    input: () => {},
+    violation: { path: [], reason: "function" },
+  },
+  {
+    name: "reports a top-level symbol",
+    input: Symbol("s"),
+    violation: { path: [], reason: "symbol" },
+  },
+  { name: "reports a top-level bigint", input: 1n, violation: { path: [], reason: "bigint" } },
+  {
+    name: "reports a top-level NaN",
+    input: NaN,
+    violation: { path: [], reason: "non-finite number" },
+  },
+  {
+    name: "reports a top-level Infinity",
+    input: Infinity,
+    violation: { path: [], reason: "non-finite number" },
+  },
+
+  {
+    name: "reports an undefined member",
+    input: { a: undefined },
+    violation: { path: ["a"], reason: "undefined" },
+  },
+  {
+    name: "reports a function member",
+    input: { a: () => {} },
+    violation: { path: ["a"], reason: "function" },
+  },
+  {
+    name: "reports a symbol member",
+    input: { a: Symbol("s") },
+    violation: { path: ["a"], reason: "symbol" },
+  },
+  {
+    name: "reports a bigint member",
+    input: { a: 1n },
+    violation: { path: ["a"], reason: "bigint" },
+  },
+  {
+    name: "reports a NaN member",
+    input: { a: NaN },
+    violation: { path: ["a"], reason: "non-finite number" },
+  },
+  {
+    name: "reports an Infinity member",
+    input: { a: Infinity },
+    violation: { path: ["a"], reason: "non-finite number" },
+  },
+  {
+    name: "reports an undefined array element",
+    input: [1, undefined],
+    violation: { path: [1], reason: "undefined" },
+  },
+  {
+    name: "reports a bigint array element",
+    input: [1n],
+    violation: { path: [0], reason: "bigint" },
+  },
+
+  {
+    name: "reports a deep object path",
+    input: { a: { b: { c: undefined } } },
+    violation: { path: ["a", "b", "c"], reason: "undefined" },
+  },
+  {
+    name: "reports an array element inside an object",
+    input: { a: [1, [2, Symbol("s")]] },
+    violation: { path: ["a", 1, 1], reason: "symbol" },
+  },
+  {
+    name: "reports an object member inside an array",
+    input: [{ a: 1n }],
+    violation: { path: [0, "a"], reason: "bigint" },
+  },
+  {
+    name: "reports the first violation in iteration order",
+    input: { a: NaN, b: undefined },
+    violation: { path: ["a"], reason: "non-finite number" },
+  },
+
+  {
+    name: "reports a cycle through an object",
+    input: selfObject,
+    violation: { path: ["me"], reason: "cycle" },
+  },
+  {
+    name: "reports a cycle through an array",
+    input: selfArray,
+    violation: { path: [0], reason: "cycle" },
+  },
+  {
+    name: "reports a cycle nested under a path",
+    input: { a: { b: selfObject } },
+    violation: { path: ["a", "b", "me"], reason: "cycle" },
+  },
+];
+
+describe("findNonJson", () => {
+  it.each(nonJsonCases)("$name", ({ input, violation }) => {
+    expect(findNonJson(input)).toEqual(violation);
   });
 });

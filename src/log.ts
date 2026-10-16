@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { classifyAction, type Action, type ActionErrorCode, type ActionPath } from "./action.js";
 import { isJsonObject } from "./json.js";
@@ -147,26 +147,6 @@ export const readLog = (path: string): LogRead => {
 };
 
 /**
- * Skeleton shim over `readLog`.
- *
- * The walking skeleton's `open` takes no options, so this refuses on damage and
- * on a newer version. The `onDamage` policy and the error shape are #28's and
- * #16's; this exists only to keep the pre-#25 handle compiling.
- */
-export const readActions = (path: string): Action[] => {
-  const result = readLog(path);
-  if (result.status === "ok") {
-    return [...result.actions];
-  }
-  if (result.status === "damaged") {
-    throw new Error(`damaged log at line ${result.damage.line}`);
-  }
-  throw new Error(
-    `unsupported log version ${result.version}; this build reads up to ${FORMAT_VERSION}`,
-  );
-};
-
-/**
  * Serialise one action as a record with the format's fixed envelope order.
  *
  * The envelope is rebuilt from the fields so a caller cannot reorder `op` and
@@ -181,9 +161,4 @@ export const serialiseAction = (action: Action): string => {
     case "delete":
       return `${JSON.stringify({ op: action.op, id: action.id })}\n`;
   }
-};
-
-/** Append one action to the NDJSON file as a single line. */
-export const appendAction = (path: string, action: Action): void => {
-  appendFileSync(path, serialiseAction(action), "utf8");
 };

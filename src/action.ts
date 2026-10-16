@@ -36,6 +36,7 @@ export type ActionErrorCode =
   | "value-missing"
   | "value-not-object"
   | "value-has-null"
+  | "not-json"
   | "patch-missing"
   | "patch-not-object"
   | "patch-null-in-array";

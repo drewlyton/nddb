@@ -1,8 +1,25 @@
 import type { Action } from "./action.js";
 import { merge } from "./merge.js";
 
-/** A materialized entity. `id` is the only field nddb reserves. */
-export type Entity = { readonly id: string } & Record<string, unknown>;
+/**
+ * A materialized entity: the caller's fields plus the reserved `id`.
+ *
+ * The parameter is explicit at `open<T>`; the default keeps the schemaless
+ * case usable without annotating every call site.
+ */
+export type Entity<T extends Record<string, unknown> = Record<string, unknown>> = {
+  readonly id: string;
+} & T;
+
+/**
+ * A patch over `T`'s fields: nested objects recurse, arrays stay opaque, and a
+ * `null` at a member position removes that member (#4).
+ */
+export type DeepPartial<T> = T extends readonly unknown[]
+  ? T
+  : T extends object
+    ? { [K in keyof T]?: DeepPartial<T[K]> | null }
+    : T;
 
 /**
  * Fold one action into a materialised view, in place.
