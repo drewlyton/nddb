@@ -11,11 +11,17 @@ patch semantics, durability contract, identity, handle model, and on-disk
 format. Read the map before changing the public surface, and prefer the recorded
 decision over intuition.
 
-The build is planned as `build`-labelled child tickets of that map. Work belongs
-against one of those tickets rather than alongside them.
+The core is implemented under `src/`. The remaining `build` tickets are
+documentation (#29), packaging (#30), and verification (#31); work belongs
+against one of those rather than alongside them.
 
-`src/` is still the original walking skeleton and contradicts several of those
-decisions. It is being replaced; treat it as scaffolding, not as a base.
+## Invariants
+
+Keep the public contract honest; `README.md` carries the detail.
+
+- `buffered` is not power-loss durable.
+- One handle per file, machine-wide.
+- `patch` treats arrays as opaque values.
 
 ## Code style
 
@@ -33,5 +39,6 @@ pnpm test        # vitest, single run
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # oxlint
 pnpm fmt         # oxfmt
+pnpm fmt:check   # oxfmt --check
 pnpm build       # emit dist/
 ```
