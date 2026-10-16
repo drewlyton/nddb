@@ -45,32 +45,34 @@ const primitiveReason = (value: unknown): NonJsonReason | undefined => {
  */
 export const findNonJson = (root: unknown): NonJsonViolation | undefined => {
   const ancestors = new Set<object>();
+  const stack: (string | number)[] = [];
 
-  const walk = (
-    value: unknown,
-    path: readonly (string | number)[],
-  ): NonJsonViolation | undefined => {
+  const walk = (value: unknown): NonJsonViolation | undefined => {
     const reason = primitiveReason(value);
     if (reason !== undefined) {
-      return { path, reason };
+      return { path: [...stack], reason };
     }
     if (value === null || typeof value !== "object") {
       return undefined;
     }
     // A shared reference is serialisable; only a value containing itself is not.
     if (ancestors.has(value)) {
-      return { path, reason: "cycle" };
+      return { path: [...stack], reason: "cycle" };
     }
     ancestors.add(value);
 
     let found: NonJsonViolation | undefined;
     if (Array.isArray(value)) {
       for (let index = 0; index < value.length && found === undefined; index += 1) {
-        found = walk(value[index], [...path, index]);
+        stack.push(index);
+        found = walk(value[index]);
+        stack.pop();
       }
     } else {
       for (const [key, child] of Object.entries(value)) {
-        found = walk(child, [...path, key]);
+        stack.push(key);
+        found = walk(child);
+        stack.pop();
         if (found !== undefined) {
           break;
         }
@@ -81,5 +83,5 @@ export const findNonJson = (root: unknown): NonJsonViolation | undefined => {
     return found;
   };
 
-  return walk(root, []);
+  return walk(root);
 };

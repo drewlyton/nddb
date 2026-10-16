@@ -124,7 +124,7 @@ export const parseLog = (text: string): LogRead => {
         damage: { kind: "invalid-json", line, cause: errorMessage(error) },
       };
     }
-    const check = classifyAction(parsed);
+    const check = classifyAction(parsed, { nullPossible: value.includes("null") });
     if (!check.ok) {
       const damage: LogDamage =
         check.path === undefined

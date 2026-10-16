@@ -48,14 +48,21 @@ export type ActionCheck =
 const fail = (code: ActionErrorCode, path?: ActionPath): ActionCheck =>
   path === undefined ? { ok: false, code } : { ok: false, code, path };
 
-/** First `null` anywhere in a put payload, as a path from the payload root. */
-const findNull = (value: unknown, path: ActionPath): ActionPath | undefined => {
+/**
+ * First `null` anywhere in a put payload, as a path from the payload root.
+ *
+ * The stack tracks the current path and allocates only on failure; the path is
+ * never observed on success.
+ */
+const findNull = (value: unknown, stack: (string | number)[]): ActionPath | undefined => {
   if (value === null) {
-    return path;
+    return [...stack];
   }
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index += 1) {
-      const found = findNull(value[index], [...path, index]);
+      stack.push(index);
+      const found = findNull(value[index], stack);
+      stack.pop();
       if (found !== undefined) {
         return found;
       }
@@ -64,7 +71,9 @@ const findNull = (value: unknown, path: ActionPath): ActionPath | undefined => {
   }
   if (typeof value === "object") {
     for (const [key, child] of Object.entries(value)) {
-      const found = findNull(child, [...path, key]);
+      stack.push(key);
+      const found = findNull(child, stack);
+      stack.pop();
       if (found !== undefined) {
         return found;
       }
@@ -82,15 +91,17 @@ const findNull = (value: unknown, path: ActionPath): ActionPath | undefined => {
  */
 const findNullInArray = (
   value: unknown,
-  path: ActionPath,
+  stack: (string | number)[],
   inArray: boolean,
 ): ActionPath | undefined => {
   if (value === null) {
-    return inArray ? path : undefined;
+    return inArray ? [...stack] : undefined;
   }
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index += 1) {
-      const found = findNullInArray(value[index], [...path, index], true);
+      stack.push(index);
+      const found = findNullInArray(value[index], stack, true);
+      stack.pop();
       if (found !== undefined) {
         return found;
       }
@@ -99,13 +110,28 @@ const findNullInArray = (
   }
   if (typeof value === "object") {
     for (const [key, child] of Object.entries(value)) {
-      const found = findNullInArray(child, [...path, key], inArray);
+      stack.push(key);
+      const found = findNullInArray(child, stack, inArray);
+      stack.pop();
       if (found !== undefined) {
         return found;
       }
     }
   }
   return undefined;
+};
+
+/** Reading a field never consults the prototype chain, matching the grammar. */
+const field = (source: Record<string, unknown>, key: string): unknown =>
+  Object.hasOwn(source, key) ? source[key] : undefined;
+
+export type ActionCheckOptions = {
+  /**
+   * Set false only when the caller has proven the source contains no `null`
+   * literal — then the deep null walk is skipped. The read path knows this from
+   * the raw line text; it is a fast pre-filter, never a semantic change.
+   */
+  readonly nullPossible?: boolean;
 };
 
 /**
@@ -116,14 +142,12 @@ const findNullInArray = (
  * `null`, the path says where — Log reading needs both to report damage
  * precisely.
  */
-export const classifyAction = (value: unknown): ActionCheck => {
+export const classifyAction = (value: unknown, options?: ActionCheckOptions): ActionCheck => {
   if (!isJsonObject(value)) {
     return fail("not-an-object");
   }
 
-  const fields = new Map<string, unknown>(Object.entries(value));
-
-  const op = fields.get("op");
+  const op = field(value, "op");
   if (op === undefined) {
     return fail("op-missing");
   }
@@ -131,7 +155,7 @@ export const classifyAction = (value: unknown): ActionCheck => {
     return fail("op-unknown");
   }
 
-  const id = fields.get("id");
+  const id = field(value, "id");
   if (id === undefined) {
     return fail("id-missing");
   }
@@ -142,32 +166,38 @@ export const classifyAction = (value: unknown): ActionCheck => {
     return fail("id-empty");
   }
 
+  const checkNull = options?.nullPossible !== false;
+
   if (op === "put") {
-    const payload = fields.get("value");
+    const payload = field(value, "value");
     if (payload === undefined) {
       return fail("value-missing");
     }
     if (!isJsonObject(payload)) {
       return fail("value-not-object");
     }
-    const nullPath = findNull(payload, []);
-    if (nullPath !== undefined) {
-      return fail("value-has-null", nullPath);
+    if (checkNull) {
+      const nullPath = findNull(payload, []);
+      if (nullPath !== undefined) {
+        return fail("value-has-null", nullPath);
+      }
     }
     return { ok: true, action: { op: "put", id, value: payload } };
   }
 
   if (op === "patch") {
-    const payload = fields.get("patch");
+    const payload = field(value, "patch");
     if (payload === undefined) {
       return fail("patch-missing");
     }
     if (!isJsonObject(payload)) {
       return fail("patch-not-object");
     }
-    const nullPath = findNullInArray(payload, [], false);
-    if (nullPath !== undefined) {
-      return fail("patch-null-in-array", nullPath);
+    if (checkNull) {
+      const nullPath = findNullInArray(payload, [], false);
+      if (nullPath !== undefined) {
+        return fail("patch-null-in-array", nullPath);
+      }
     }
     return { ok: true, action: { op: "patch", id, patch: payload } };
   }
