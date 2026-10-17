@@ -103,8 +103,8 @@ idempotent — an unclosed handle loses only the flush guarantee.
 
 The cost of the promise, measured on ext4: the raw append syscall is ~2 µs
 buffered and ~670 µs under `strict`; the public `put` (validate, serialise,
-fold) is ~8 µs buffered. Bulk loads should use `buffered` and `flush()` once at
-the end; see [Size envelope](#size-envelope) for the numbers.
+fold) is ~6.5 µs buffered. Bulk loads should use `buffered` and `flush()` once
+at the end; see [Size envelope](#size-envelope) for the numbers.
 
 ## Size envelope
 
@@ -117,16 +117,16 @@ median of 5 runs (3 at 100k):
 
 | Actions | File size | Eager `open` (read + fold) |
 | ------: | --------: | -------------------------: |
-|  10,000 |   0.95 MB |                     ~35 ms |
-|  50,000 |   4.88 MB |                    ~130 ms |
-| 100,000 |   9.79 MB |                    ~230 ms |
+|  10,000 |   0.95 MB |                     ~19 ms |
+|  50,000 |   4.88 MB |                     ~84 ms |
+| 100,000 |   9.79 MB |                    ~165 ms |
 
 Writes through the public `put` (validate, serialise, one `write(2)`, fold):
 
-| Policy   | Actions |  Total | Per `put` |
-| -------- | ------: | -----: | --------: |
-| buffered |  50,000 | ~0.4 s |     ~8 µs |
-| strict   |  10,000 | ~6.7 s |   ~670 µs |
+| Policy   | Actions |   Total | Per `put` |
+| -------- | ------: | ------: | --------: |
+| buffered |  50,000 | ~0.33 s |   ~6.6 µs |
+| strict   |  10,000 |  ~6.0 s |   ~600 µs |
 
 `flush()` after the 50,000 buffered writes costs ~4 ms (one `fsync`).
 
@@ -136,8 +136,8 @@ run and are only meaningful on a real filesystem — on tmpfs `fsync` is a no-op
 so the `strict` rows do not apply there.
 
 So the promise holds: 50,000 actions is a 4.88 MB log that `open` folds in
-~130 ms and that `buffered` writes at ~8 µs per action. The top of the range
-is real, not comfortable — 100,000 actions is already 9.79 MB and a ~230 ms
+~84 ms and that `buffered` writes at ~6.6 µs per action. The top of the range
+is real, not comfortable — 100,000 actions is already 9.79 MB and a ~165 ms
 blocking `open` — so treat "tens of thousands" as the ceiling it is. The
 ceiling is about blocking latency and resident memory, not correctness: the same
 code opens a million actions in a few seconds.
@@ -294,16 +294,17 @@ per-member reference; the notes below are the semantics the types do not carry.
 | `durability` | `"buffered"` \| `"strict"` | `"buffered"` |
 | `onDamage`   | `"throw"` \| `"salvage"`   | `"throw"`    |
 
-| Member             | Notes                                 |
-| ------------------ | ------------------------------------- |
-| `path`             | Read-only resolved absolute path.     |
-| `get(id)`          | O(1); returns a deep copy.            |
-| `all()`            | O(n); a fresh array of deep copies.   |
-| `put(entity)`      | Create-or-replace; `id` is required.  |
-| `patch(id, patch)` | RFC 7386 merge; upserts a missing id. |
-| `delete(id)`       | Hard delete; idempotent.              |
-| `flush()`          | Synchronous; no-op under `strict`.    |
-| `close()`          | Flushes; idempotent and optional.     |
+| Member             | Notes                                      |
+| ------------------ | ------------------------------------------ |
+| `path`             | Read-only resolved absolute path.          |
+| `get(id)`          | O(1); returns a deep copy.                 |
+| `all()`            | O(n); a fresh array of deep copies.        |
+| `forEach(visit)`   | O(n); visits the stored entities, no copy. |
+| `put(entity)`      | Create-or-replace; `id` is required.       |
+| `patch(id, patch)` | RFC 7386 merge; upserts a missing id.      |
+| `delete(id)`       | Hard delete; idempotent.                   |
+| `flush()`          | Synchronous; no-op under `strict`.         |
+| `close()`          | Flushes; idempotent and optional.          |
 
 - `Entity<T> = { readonly id: string } & T`. `T` defaults to
   `Record<string, unknown>` for the schemaless case.
@@ -314,10 +315,13 @@ per-member reference; the notes below are the semantics the types do not carry.
   always wins at the top level of a payload; a nested `id` is ordinary data.
 - The view never aliases caller data: `get`/`all` return deep copies, and
   `put`/`patch` copy payloads in.
+- `forEach` is the deliberate exception, for scans that cannot afford a copy.
+  Its callback receives the **stored** entity: mutate it or keep a reference
+  and the in-memory view drifts from the log. Return `false` to stop early.
 
 Deliberately absent from v0.1: batch and transaction APIs, `count`/`filter`/
 `find`/`keys`, and `Symbol.dispose`. Filtering is the caller's, in memory over
-`all()`.
+`all()` or `forEach`.
 
 ## Non-goals
 

@@ -11,7 +11,7 @@
  * Results are indicative for one machine and one workload. Read the settings
  * each tool is given (durable vs. not) before quoting a number.
  */
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -226,4 +226,69 @@ line();
     1,
     `${db.data.entities.length} entities`,
   );
+}
+
+console.log(`\n== Scan every entity, no copy (median of 5) ==`);
+line();
+{
+  const file = `${dir}/scan.ndjson`;
+  const lines = ['{"nddb":1}'];
+  for (let i = 0; i < N; i += 1) {
+    const { id, ...value } = entity(i);
+    lines.push(JSON.stringify({ op: "put", id, value }));
+  }
+  writeFileSync(file, `${lines.join("\n")}\n`);
+  const db = open(file);
+  const samples = [];
+  for (let run = 0; run < 5; run += 1) {
+    let visited = 0;
+    const tick = now();
+    db.forEach(() => {
+      visited += 1;
+    });
+    samples.push(now() - tick);
+    if (visited !== N) throw new Error(`forEach visited ${visited}, expected ${N}`);
+  }
+  db.close();
+  row("nddb forEach (borrowed, in place)", median(samples), N);
+}
+{
+  const db = JSONFileSyncPreset(`${dir}/scan.json`, {
+    entities: Array.from({ length: N }, (_, i) => entity(i)),
+  });
+  const samples = [];
+  for (let run = 0; run < 5; run += 1) {
+    let visited = 0;
+    const tick = now();
+    for (const _ of db.data.entities) visited += 1;
+    samples.push(now() - tick);
+    if (visited !== N) throw new Error(`lowdb visited ${visited}, expected ${N}`);
+  }
+  row("lowdb raw array for..of", median(samples), N);
+}
+{
+  const file = `${dir}/scan.db`;
+  const db = new Database(file);
+  db.pragma("journal_mode = WAL");
+  db.pragma("synchronous = FULL");
+  db.exec("CREATE TABLE entities (id TEXT PRIMARY KEY, doc TEXT)");
+  const insert = db.prepare("INSERT INTO entities (id, doc) VALUES (?, ?)");
+  db.transaction(() => {
+    for (let i = 0; i < N; i += 1) insert.run(`e${i}`, json(i));
+  })();
+  const statement = db.prepare("SELECT id, doc FROM entities");
+  const samples = [];
+  for (let run = 0; run < 5; run += 1) {
+    let visited = 0;
+    const tick = now();
+    for (const r of statement.iterate()) {
+      const parsed = JSON.parse(r.doc);
+      parsed.id = r.id;
+      visited += 1;
+    }
+    samples.push(now() - tick);
+    if (visited !== N) throw new Error(`iterate visited ${visited}, expected ${N}`);
+  }
+  db.close();
+  row("sqlite iterate + JSON.parse", median(samples), N);
 }

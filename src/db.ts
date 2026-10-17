@@ -28,6 +28,15 @@ export type Db<T extends Record<string, unknown> = Record<string, unknown>> = {
   readonly path: string;
   get(id: string): Entity<T> | undefined;
   all(): Entity<T>[];
+  /**
+   * Visit every entity without copying it.
+   *
+   * The callback receives the stored entity, not a copy: do not mutate it or
+   * keep a reference after returning, or the in-memory view can drift from the
+   * log. Return `false` to stop early, and do not write to the handle from the
+   * callback. Use `get`/`all` when you need an isolated copy.
+   */
+  forEach(visit: (entity: Entity<T>) => boolean | void): void;
   put(entity: Entity<T>): void;
   patch(id: string, patch: DeepPartial<T>): void;
   delete(id: string): void;
@@ -159,6 +168,14 @@ export const open = <T extends Record<string, unknown> = Record<string, unknown>
     all: () => {
       guard();
       return [...entry.entities.values()].map((entity) => structuredClone(entity) as Entity<T>);
+    },
+    forEach: (visit) => {
+      guard();
+      for (const entity of entry.entities.values()) {
+        if (visit(entity as Entity<T>) === false) {
+          break;
+        }
+      }
     },
     put: (entity) => {
       writable();

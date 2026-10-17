@@ -195,6 +195,61 @@ describe("open", () => {
     });
   });
 
+  describe("forEach scan", () => {
+    it("visits every entity once, in first-appearance order", () => {
+      const db = open<{ n: number }>(path);
+      db.put({ id: "a", n: 1 });
+      db.put({ id: "b", n: 2 });
+      db.put({ id: "a", n: 3 });
+
+      const seen: string[] = [];
+      db.forEach((entity) => {
+        seen.push(entity.id);
+      });
+
+      expect(seen).toEqual(["a", "b"]);
+      expect(db.all()).toEqual([
+        { id: "a", n: 3 },
+        { id: "b", n: 2 },
+      ]);
+    });
+
+    it("stops when the callback returns false", () => {
+      const db = open<{ n: number }>(path);
+      for (let i = 0; i < 5; i += 1) db.put({ id: `e${i}`, n: i });
+
+      const seen: string[] = [];
+      db.forEach((entity) => {
+        seen.push(entity.id);
+        return seen.length < 2;
+      });
+
+      expect(seen).toEqual(["e0", "e1"]);
+    });
+
+    it("hands out the stored entity in place, which the copy-on-read rule forbids", () => {
+      // The documented trade of the scan: no copy, so the callback sees the
+      // live object and must not mutate or retain it.
+      const db = open<{ n: number }>(path);
+      db.put({ id: "a", n: 1 });
+
+      let borrowed: { id: string; n: number } | undefined;
+      db.forEach((entity) => {
+        borrowed = entity;
+      });
+      borrowed!.n = 99;
+
+      expect(db.get("a")).toEqual({ id: "a", n: 99 });
+    });
+
+    it("throws after close", () => {
+      const db = open<{ n: number }>(path);
+      db.close();
+
+      expect(capture(() => db.forEach(() => {})).code).toBe("NDDB_CLOSED");
+    });
+  });
+
   describe("cache and realpath", () => {
     it("returns the same handle for the same path", () => {
       const db = open(path);
